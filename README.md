@@ -6,3 +6,4 @@ ClearSky is an ultra fast Minecraft: Pocket Edition server software with clean f
  - **No You CAN'T**
 
 ## This Repo is a test area for PHP7 and OPcache&Memcache
+- Okay , maybe I(Aodzip) never finish this 
