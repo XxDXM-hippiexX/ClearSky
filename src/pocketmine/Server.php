@@ -1433,6 +1433,7 @@ class Server{
 		$this->console = new CommandReader();
 
 		$version = new VersionString($this->getPocketMineVersion());
+		
 		$this->logger->info("Loading pocketmine.yml...");
 		if(!file_exists($this->dataPath . "pocketmine.yml")){
 			$content = file_get_contents($this->filePath . "src/pocketmine/resources/pocketmine.yml");
@@ -1442,6 +1443,22 @@ class Server{
 			@file_put_contents($this->dataPath . "pocketmine.yml", $content);
 		}
 		$this->config = new Config($this->dataPath . "pocketmine.yml", Config::YAML, []);
+		
+		if(extension_loaded("xdebug")){
+			if(!$this->getProperty("debug.allow-xdebug", false)){
+				$this->logger->critical("Please REMOVE xdebug in production server");
+				return;
+			}else{
+				$this->logger->warning("xdebug Enabled !ONLY FOR DEVELOPMENT USE!");
+			}
+		}
+		if(!$this->getProperty("I/O.log-to-file", true)){
+			$this->logger->info("Disable MainLogger to file");
+			$this->logger->Disable();
+		}else{
+			$this->logger->info("Enable MainLogger to file");
+			$this->logger->Enable();
+		}
 
 		$this->logger->info("Loading server properties...");
 		$this->properties = new Config($this->dataPath . "server.properties", Config::PROPERTIES, [
@@ -1469,21 +1486,6 @@ class Server{
 			"auto-save" => true,
 		]);
 		
-		if(extension_loaded("xdebug")){
-			if(!$this->getProperty("debug.allow-xdebug", false)){
-				$this->logger->critical("Please REMOVE xdebug in production server");
-				return;
-			}else{
-				$this->logger->warning("xdebug Enabled !ONLY FOR DEVELOPMENT USE!");
-			}
-		}
-		if(!$this->getProperty("I/O.log-to-file", true)){
-			$this->logger->info("Disable MainLogger to file");
-			$this->logger->Disable();
-		}else{
-			$this->logger->info("Enable MainLogger to file");
-			$this->logger->Enable();
-		}
 		$this->forceLanguage = $this->getProperty("settings.force-language", false);
 		$this->baseLang = new BaseLang($this->getProperty("settings.language", BaseLang::FALLBACK_LANGUAGE));
 		$this->logger->info($this->getLanguage()->translateString("language.selected", [$this->getLanguage()->getName(), $this->getLanguage()->getLang()]));
