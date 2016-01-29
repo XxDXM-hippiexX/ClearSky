@@ -162,6 +162,6 @@ class LevelDBSnapshot{
 
 }
 
-class LevelDBException extends Exception{
+class LevelDBException extends Throwable{
 
 }
