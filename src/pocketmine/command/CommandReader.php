@@ -10,7 +10,7 @@ class CommandReader extends Thread{
 	protected $buffer;
 
 	public function __construct(){
-		$this->buffer = \ThreadedFactory::create();
+		$this->buffer = new \Threaded;
 		$this->start();
 	}
 
