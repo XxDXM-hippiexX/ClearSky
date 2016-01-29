@@ -3,7 +3,7 @@ namespace pocketmine\nbt\tag;
 
 use pocketmine\nbt\NBT;
 
-class End extends Tag{
+class EndTag extends Tag{
 
 	public function getType(){
 		return NBT::TAG_End;
