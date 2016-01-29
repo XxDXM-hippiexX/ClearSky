@@ -41,16 +41,13 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
-*.dll
 *.txt
-*.cmd
 *.dat
 *.log
 *.properties
-*.exe
 *.mcr
 *.ico
-*.md
-bin/php/php.ini
-*.phar
+plugins
+players
+worlds
 .project
