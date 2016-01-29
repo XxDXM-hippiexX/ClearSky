@@ -119,6 +119,7 @@ use pocketmine\tile\FlowerPot;
 use pocketmine\tile\Furnace;
 use pocketmine\tile\Sign;
 use pocketmine\tile\Tile;
+use pocketmine\updater\AutoUpdater;
 use pocketmine\utils\Binary;
 use pocketmine\utils\Config;
 use pocketmine\utils\LevelException;
@@ -595,6 +596,13 @@ class Server{
 	}
 
 	/**
+	 * @return AutoUpdater
+	 */
+	public function getUpdater(){
+		return $this->updater;
+	}
+
+	/**
 	 * @return PluginManager
 	 */
 	public function getPluginManager(){
@@ -656,12 +664,6 @@ class Server{
 	 */
 	public function getTickUsageAverage(){
 		return round((array_sum($this->useAverage) / count($this->useAverage)) * 100, 2);
-
-	/**
-	 * @deprecated
-	 *
-	 * @param SourceInterface $interface
-	 */
 	}
 
 	/**
@@ -1606,6 +1608,7 @@ class Server{
 		$this->network->registerInterface(new RakLibInterface($this));
 
 		$this->pluginManager->loadPlugins($this->pluginPath);
+			$this->updater = new AutoUpdater($this, $this->getProperty("auto-updater.host", "www.pocketmine.net"));
 
 		$this->enablePlugins(PluginLoadOrder::STARTUP);
 
