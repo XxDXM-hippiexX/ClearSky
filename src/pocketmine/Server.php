@@ -142,6 +142,7 @@ class Server{
 
 	/** @var Server */
 	private static $instance = null;
+	private static $sleeper = null;
 
 	/** @var BanList */
 	private $banByName = null;
@@ -372,13 +373,6 @@ class Server{
 	 */
 	public function getIp(){
 		return $this->getConfigString("server-ip", "0.0.0.0");
-	}
-
-	/**
-	 * @deprecated
-	 */
-	public function getServerName(){
-		return $this->getConfigString("motd", "Minecraft: PE Server");
 	}
 
 	public function getServerUniqueId(){
@@ -662,56 +656,12 @@ class Server{
 	 */
 	public function getTickUsageAverage(){
 		return round((array_sum($this->useAverage) / count($this->useAverage)) * 100, 2);
-	}
-
-
-	/**
-	 * @deprecated
-	 *
-	 * @param     $address
-	 * @param int $timeout
-	 */
-	public function blockAddress($address, $timeout = 300){
-		$this->network->blockAddress($address, $timeout);
-	}
-
-	/**
-	 * @deprecated
-	 *
-	 * @param $address
-	 * @param $port
-	 * @param $payload
-	 */
-	public function sendPacket($address, $port, $payload){
-		$this->network->sendPacket($address, $port, $payload);
-	}
-
-	/**
-	 * @deprecated
-	 *
-	 * @return SourceInterface[]
-	 */
-	public function getInterfaces(){
-		return $this->network->getInterfaces();
-	}
 
 	/**
 	 * @deprecated
 	 *
 	 * @param SourceInterface $interface
 	 */
-	public function addInterface(SourceInterface $interface){
-		$this->network->registerInterface($interface);
-	}
-
-	/**
-	 * @deprecated
-	 *
-	 * @param SourceInterface $interface
-	 */
-	public function removeInterface(SourceInterface $interface){
-		$interface->shutdown();
-		$this->network->unregisterInterface($interface);
 	}
 
 	/**
@@ -886,9 +836,7 @@ class Server{
 			}
 		}catch(\Throwable $e){
 			$this->logger->critical($this->getLanguage()->translateString("pocketmine.data.saveError", [$name, $e->getMessage()]));
-			if(\pocketmine\DEBUG > 1 and $this->logger instanceof MainLogger){
-				$this->logger->logException($e);
-			}
+			$this->logger->logException($e);
 		}
 	}
 
@@ -1096,9 +1044,7 @@ class Server{
 		}catch(\Throwable $e){
 
 			$this->logger->error($this->getLanguage()->translateString("pocketmine.level.loadError", [$name, $e->getMessage()]));
-			if($this->logger instanceof MainLogger){
-				$this->logger->logException($e);
-			}
+			$this->logger->logException($e);
 			return false;
 		}
 
@@ -1155,9 +1101,7 @@ class Server{
 			$level->setTickRate($this->baseTickRate);
 		}catch(\Throwable $e){
 			$this->logger->error($this->getLanguage()->translateString("pocketmine.level.generateError", [$name, $e->getMessage()]));
-			if($this->logger instanceof MainLogger){
-				$this->logger->logException($e);
-			}
+			$this->logger->logException($e);
 			return false;
 		}
 
@@ -1452,7 +1396,11 @@ class Server{
 	public static function getInstance(){
 		return self::$instance;
 	}
-	
+	public static function microSleep(int $microseconds){
+		Server::$sleeper->synchronized(function(int $ms){
+			Server::$sleeper->wait($ms);
+		}, $microseconds);
+	}
 	/**
 	 * @param \ClassLoader    $autoloader
 	 * @param \ThreadedLogger $logger
@@ -1462,9 +1410,10 @@ class Server{
 	 */
 	public function __construct(\ClassLoader $autoloader, \ThreadedLogger $logger, $filePath, $dataPath, $pluginPath){
 		self::$instance = $this;
-
+		self::$sleeper = new \Threaded;
 		$this->autoloader = $autoloader;
 		$this->logger = $logger;
+		try{
 		$this->filePath = $filePath;
 		if(!file_exists($dataPath . "worlds/")){
 			mkdir($dataPath . "worlds/", 0777);
@@ -1596,7 +1545,8 @@ class Server{
 			$this->setConfigInt("difficulty", 3);
 		}
 
-		define("pocketmine\\DEBUG", (int) $this->getProperty("debug.level", 1));
+			define('pocketmine\DEBUG', (int) $this->getProperty("debug.level", 1));
+			ini_set('assert.exception', 1);
 		if($this->logger instanceof MainLogger){
 			$this->logger->setLogDebug(\pocketmine\DEBUG > 1);
 		}
@@ -1618,6 +1568,7 @@ class Server{
 
 		$this->logger->info($this->getLanguage()->translateString("pocketmine.server.info", [
 			$this->getName(),
+				($version->isDev() ? TextFormat::YELLOW : "") . $version->get(true) . TextFormat::WHITE,
 			$this->getCodename(),
 			$this->getApiVersion()
 		]));
@@ -1637,7 +1588,6 @@ class Server{
 		Enchantment::init();
 		Attribute::init();
 		/** TODO: @deprecated */
-		TextWrapper::init();
 		$this->craftingManager = new CraftingManager();
 
 		$this->pluginManager = new PluginManager($this, $this->commandMap);
@@ -1647,7 +1597,6 @@ class Server{
 		$this->pluginManager->registerInterface(PharPluginLoader::class);
 		$this->pluginManager->registerInterface(ScriptPluginLoader::class);
 
-		set_exception_handler([$this, "exceptionHandler"]);
 		register_shutdown_function([$this, "crashDump"]);
 
 		$this->queryRegenerateTask = new QueryRegenerateEvent($this, 5);
@@ -1721,6 +1670,9 @@ class Server{
 		$this->enablePlugins(PluginLoadOrder::POSTWORLD);
 
 		$this->start();
+		}catch(\Throwable $e){
+			$this->exceptionHandler($e);
+		}
 	}
 
 	/**
@@ -1828,7 +1780,7 @@ class Server{
 		$packet->encode();
 		$packet->isEncoded = true;
 		if(Network::$BATCH_THRESHOLD >= 0 and strlen($packet->buffer) >= Network::$BATCH_THRESHOLD){
-			Server::getInstance()->batchPackets($players, [$packet->buffer], false, $packet->getChannel());
+			Server::getInstance()->batchPackets($players, [$packet->buffer], false);
 			return;
 		}
 
@@ -1848,7 +1800,7 @@ class Server{
 	 * @param bool                $forceSync
 	 * @param int                 $channel
 	 */
-	public function batchPackets(array $players, array $packets, $forceSync = false, $channel = 0){
+	public function batchPackets(array $players, array $packets, $forceSync = false){
 		Timings::$playerNetworkTimer->startTiming();
 		$str = "";
 
@@ -1871,10 +1823,10 @@ class Server{
 		}
 
 		if(!$forceSync and $this->networkCompressionAsync){
-			$task = new CompressBatchedTask($str, $targets, $this->networkCompressionLevel, $channel);
+			$task = new CompressBatchedTask($str, $targets, $this->networkCompressionLevel);
 			$this->getScheduler()->scheduleAsyncTask($task);
 		}else{
-			$this->broadcastPacketsCallback(zlib_encode($str, ZLIB_ENCODING_DEFLATE, $this->networkCompressionLevel), $targets, $channel);
+			$this->broadcastPacketsCallback(zlib_encode($str, ZLIB_ENCODING_DEFLATE, $this->networkCompressionLevel), $targets);
 		}
 
 		Timings::$playerNetworkTimer->stopTiming();
@@ -1922,9 +1874,6 @@ class Server{
 	 *
 	 * @deprecated
 	 */
-	public function loadPlugin(Plugin $plugin){
-		$this->enablePlugin($plugin);
-	}
 
 	public function disablePlugins(){
 		$this->pluginManager->disablePlugins();
@@ -1952,9 +1901,6 @@ class Server{
 	 * @throws \Throwable
 	 */
 	public function dispatchCommand(CommandSender $sender, $commandLine){
-		if(!($sender instanceof CommandSender)){
-			throw new ServerException("CommandSender is not valid");
-		}
 
 		if($this->commandMap->dispatch($sender, $commandLine)){
 			return true;
@@ -1990,7 +1936,6 @@ class Server{
 		$this->reloadWhitelist();
 		$this->operators->reload();
 
-		$this->memoryManager->doObjectCleanup();
 
 		foreach($this->getIPBans()->getEntries() as $entry){
 			$this->getNetwork()->blockAddress($entry->getName(), -1);
@@ -2004,18 +1949,10 @@ class Server{
 		TimingsHandler::reload();
 	}
 	
-	public function setshutdownreason($reason){
-		$this->shutdownreason = $reason;
-	}
 	/**
 	 * Shutdowns the server correctly
 	 */
 	public function shutdown(){
-		if($this->isRunning){
-			$killer = new ServerKiller(90);
-			$killer->start();
-			$killer->detach();
-		}
 		$this->isRunning = false;
 	}
 
@@ -2045,12 +1982,7 @@ class Server{
 			$this->pluginManager->disablePlugins();
 
 			foreach($this->players as $player){
-				$reason = $this->shutdownreason;
-				if(trim($reason) !== ""){
-					$player->close($player->getLeaveMessage(), $reason);
-				}else{
 					$player->close($player->getLeaveMessage(), $this->getProperty("settings.shutdown-message", "Server closed"));
-				}
 			}
 
 			$this->getLogger()->debug("Unloading all levels");
@@ -2069,7 +2001,8 @@ class Server{
 			$this->properties->save();
 
 			$this->getLogger()->debug("Closing console");
-			$this->console->kill();
+			$this->console->shutdown();
+			$this->console->notify();
 
 			$this->getLogger()->debug("Stopping network interfaces");
 			foreach($this->network->getInterfaces() as $interface){
@@ -2077,11 +2010,11 @@ class Server{
 				$this->network->unregisterInterface($interface);
 			}
 
-			$this->memoryManager->doObjectCleanup();
 
 			gc_collect_cycles();
 		}catch(\Throwable $e){
 			$this->logger->emergency("Crashed while crashing, killing process");
+			$this->logger->emergency(get_class($e) . ": ". $e->getMessage());
 			@kill(getmypid());
 		}
 
@@ -2162,9 +2095,7 @@ class Server{
 
 		$errfile = cleanPath($errfile);
 
-		if($this->logger instanceof MainLogger){
 			$this->logger->logException($e, $trace);
-		}
 
 		$lastError = [
 			"type" => $type,
@@ -2375,9 +2306,7 @@ class Server{
 				}
 			}catch(\Throwable $e){
 				$this->logger->critical($this->getLanguage()->translateString("pocketmine.level.tickError", [$level->getName(), $e->getMessage()]));
-				if(\pocketmine\DEBUG > 1 and $this->logger instanceof MainLogger){
 					$this->logger->logException($e);
-				}
 			}
 		}
 	}
@@ -2451,10 +2380,9 @@ class Server{
 				" | Memory " . $usage .
 				" | U " . round($this->network->getUpload() / 1024, 2) .
 				" D " . round($this->network->getDownload() / 1024, 2) .
-				" kB/s | TPS " . $this->getTicksPerSecondAverage() .
-				" | Load " . $this->getTickUsageAverage() . "%\x07";
+			" kB/s | TPS " . $this->getTicksPerSecond() .
+			" | Load " . $this->getTickUsage() . "%\x07";
 		}
-
 		$this->network->resetStatistics();
 	}
 
@@ -2472,15 +2400,14 @@ class Server{
 			}
 		}catch(\Throwable $e){
 			if(\pocketmine\DEBUG > 1){
-				if($this->logger instanceof MainLogger){
-					$this->logger->logException($e);
-				}
+				$this->logger->logException($e);
 			}
 
 			$this->getNetwork()->blockAddress($address, 600);
 		}
 		//TODO: add raw packet events
 	}
+
 
 	/**
 	 * Tries to execute a server tick
@@ -2528,9 +2455,7 @@ class Server{
 						$this->queryHandler->regenerateInfo();
 					}
 				}catch(\Throwable $e){
-					if($this->logger instanceof MainLogger){
-						$this->logger->logException($e);
-					}
+					$this->logger->logException($e);
 				}
 			}
 

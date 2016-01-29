@@ -83,7 +83,7 @@ class ListTag extends NamedTag implements \ArrayAccess, \Countable{
 	}
 
 	public function getType(){
-		return NBT::TAG_Enum;
+		return NBT::TAG_List;
 	}
 
 	public function setTagType($type){
@@ -140,7 +140,7 @@ class ListTag extends NamedTag implements \ArrayAccess, \Countable{
 					$tag->read($nbt);
 					$this->{$i} = $tag;
 					break;
-				case NBT::TAG_Enum:
+				case NBT::TAG_List:
 					$tag = new TagEnum("");
 					$tag->read($nbt);
 					$this->{$i} = $tag;
