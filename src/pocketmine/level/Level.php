@@ -419,7 +419,7 @@ class Level implements ChunkManager, Metadatable{
 	 * @param string $path
 	 * @param string $provider Class that extends LevelProvider
 	 *
-	 * @throws \Exception
+	 * @throws \Throwable
 	 */
 	public function __construct(Server $server, $name, $path, $provider){
 		$this->blockStates = Block::$fullList;

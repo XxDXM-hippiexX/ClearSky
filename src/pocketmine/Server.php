@@ -1949,7 +1949,7 @@ class Server{
 	 *
 	 * @return bool
 	 *
-	 * @throws \Exception
+	 * @throws \Throwable
 	 */
 	public function dispatchCommand(CommandSender $sender, $commandLine){
 		if(!($sender instanceof CommandSender)){

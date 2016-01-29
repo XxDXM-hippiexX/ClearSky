@@ -321,7 +321,7 @@ namespace pocketmine {
 			if(function_exists("xdebug_get_function_stack")){
 				$trace = array_reverse(xdebug_get_function_stack());
 			}else{
-				$e = new \Exception();
+				$e = new \Throwable();
 				$trace = $e->getTrace();
 			}
 		}
