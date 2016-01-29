@@ -252,7 +252,7 @@ class Server{
 	private $pluginPath;
 	
 	/** Additional **/
-	private $shutdownreason;
+	private $shutdownmessage = null;
 
 	private $uniquePlayers = [];
 
@@ -1952,6 +1952,19 @@ class Server{
 	/**
 	 * Shutdowns the server correctly
 	 */
+	 
+	public function setshutdownreason($reason){
+		$this->shutdownmessage = $reason;
+	}
+	
+	public function getShutdownMessage(){
+		if($this->shutdownmessage !== null){
+			return $this->shutdownmessage;
+		}else{
+			return $this->getProperty("settings.shutdown-message", "Server closed");
+		}
+	}
+	
 	public function shutdown(){
 		$this->isRunning = false;
 	}
@@ -1982,7 +1995,7 @@ class Server{
 			$this->pluginManager->disablePlugins();
 
 			foreach($this->players as $player){
-					$player->close($player->getLeaveMessage(), $this->getProperty("settings.shutdown-message", "Server closed"));
+					$player->close($player->getLeaveMessage(), $this->getShutdownMessage());
 			}
 
 			$this->getLogger()->debug("Unloading all levels");
