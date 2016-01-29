@@ -453,10 +453,6 @@ class Level implements ChunkManager, Metadatable{
 		$this->updateQueue->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
 		$this->time = (int) $this->provider->getTime();
 
-		foreach($this->getServer()->getProperty("disable-block-ticking", []) as $id){
-			$ticked = isset($this->randomTickBlocks[$id]);
-			if($ticked === true) unset($this->randomTickBlocks[$id]);
-		}
 
 		$this->updateRedstoneQueue = new ReversePriorityQueue();
 		$this->updateRedstoneQueue->setExtractFlags(\SplPriorityQueue::EXTR_BOTH);
